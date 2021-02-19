@@ -113,22 +113,27 @@ class ModelSearchAspect extends SearchAspect
         return $query->get();
     }
 
-    protected function addSearchConditions(Builder $query, string $term)
+     protected function addSearchConditions(Builder $query, string $term)
     {
         $attributes = $this->attributes;
         $searchTerms = explode(' ', $term);
 
-        $query->where(function (Builder $query) use ($attributes, $term, $searchTerms) {
-            foreach (Arr::wrap($attributes) as $attribute) {
-                foreach ($searchTerms as $searchTerm) {
-                    $sql = "LOWER({$attribute->getAttribute()}) LIKE ?";
+        $searchTerms = collect($searchTerms)->map(function ($q){
+            return trim($q, " \t\n\r\0\x0B'\"-_)(*&^%$#@!?/><.,:;}]{[|\\+=~`");
+        })->filter();
+
+
+        $searchTerms->map(function ($searchTerm) use ($attributes, $query) {
+            $query->where(function (Builder $query) use ($attributes, $searchTerm) {
+                foreach (Arr::wrap($attributes) as $attribute) {
+                    $sql = "LOWER(`{$attribute->getAttribute()}`) LIKE ?";
                     $searchTerm = mb_strtolower($searchTerm, 'UTF8');
 
                     $attribute->isPartial()
                         ? $query->orWhereRaw($sql, ["%{$searchTerm}%"])
                         : $query->orWhere($attribute->getAttribute(), $searchTerm);
                 }
-            }
+            });
         });
     }
 
